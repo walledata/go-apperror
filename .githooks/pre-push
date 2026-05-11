@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# pre-push: run code-quality checks before pushing.
+#
+# Enabled by `make install-hooks` (sets git config core.hooksPath .githooks).
+#
+# Scope: lint + vuln + test (i.e. `make verify`). Formatting is NOT re-checked
+# here because the pre-commit hook already auto-formats staged files — by the
+# time anything reaches a push, the formatting layer is settled.
+#
+# If you need to push despite a failure (e.g. govulncheck hit a network EOF
+# from vuln.go.dev, or you want to push WIP for a teammate to inspect), use:
+#
+#     git push --no-verify
+#
+# That is git's standard escape hatch; the GitHub Actions CI will still
+# gate the eventual merge.
+
+set -e
+
+echo "pre-push: running 'make verify' (lint + vuln + test)..."
+make verify

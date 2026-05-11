@@ -1,0 +1,50 @@
+#!/bin/sh
+#
+# pre-commit: auto-format staged Go files with gofumpt and re-stage them.
+#
+# Enable for this repo by running:    make install-hooks
+# (sets git config core.hooksPath .githooks)
+#
+# Behavior:
+#   - Runs gofumpt only on the .go files that are staged in this commit.
+#   - If you have unstaged changes in the working tree, they are stashed
+#     during the format step and restored on exit, so they can never leak
+#     into the commit.
+#   - If gofumpt changes anything, the reformatted files are re-staged and
+#     the names are printed so you can see what the hook touched.
+#   - Aborts the commit only if gofumpt itself errors (e.g. parse failure).
+#     Otherwise the commit proceeds with the reformatted content.
+
+set -e
+
+# Find staged Go files: Added / Copied / Modified (skip Deleted / Renamed).
+staged_go=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+
+if [ -z "$staged_go" ]; then
+    exit 0
+fi
+
+# Set aside any unstaged work so it can't get pulled into the commit by
+# our `git add` below. --keep-index keeps the staged state in the working
+# tree; the trap restores everything else on exit (including error exit).
+stashed=0
+if ! git diff --quiet; then
+    git stash push --keep-index --quiet --message "pre-commit: setting aside unstaged work"
+    stashed=1
+fi
+restore_stash() {
+    if [ "$stashed" -eq 1 ]; then
+        git stash pop --quiet >/dev/null 2>&1 || true
+    fi
+}
+trap restore_stash EXIT
+
+# Format. `-l` lists files that were (re)written; `-w` writes them.
+# We pass the staged list via xargs so only those files are touched.
+changed=$(echo "$staged_go" | xargs gofumpt -l -w)
+
+if [ -n "$changed" ]; then
+    echo "pre-commit: gofumpt reformatted the following staged Go files (re-staged):"
+    echo "$changed" | sed 's/^/  /'
+    echo "$changed" | xargs git add
+fi

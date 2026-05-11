@@ -1,0 +1,78 @@
+# golangci-lint v2 configuration for go-apperror.
+#
+# Run:    make lint
+# Or:     golangci-lint run ./...
+#
+# Schema reference: https://golangci-lint.run/docs/configuration/file/
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  # Start from zero and enable only what we want. Avoids surprise additions
+  # when golangci-lint adds new defaults.
+  default: none
+  enable:
+    # --- Correctness ---
+    - errcheck       # Unchecked error return values.
+    - govet          # Official Go static checks (printf, shadow, etc.).
+    - ineffassign    # Dead assignments.
+    - staticcheck    # Comprehensive static analysis (the heaviest hitter).
+    - unused         # Unused constants, variables, functions, types.
+
+    # --- Error-handling discipline (relevant to this package) ---
+    - errorlint      # Wrong `err == sentinel`, missing %w in fmt.Errorf, etc.
+
+    # --- Bug-prone patterns ---
+    - unconvert      # Redundant type conversions.
+    - bodyclose      # http.Response.Body left unclosed.
+    - rowserrcheck   # database/sql Rows.Err() unchecked.
+
+    # --- Style (mild, opinionated) ---
+    - gocritic       # Many opinionated checks; we narrow categories below.
+    - misspell       # Common English misspellings.
+
+  settings:
+    errcheck:
+      check-blank: false
+
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+      disabled-checks:
+        - ifElseChain
+        - hugeParam        # Small structs by value is fine for us.
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment   # Field order is semantic in some structs.
+
+  exclusions:
+    rules:
+      # Tests can be more relaxed about a few stylistic concerns.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gocritic
+
+# Formatters are configured separately in v2.
+formatters:
+  enable:
+    - gofumpt
+  settings:
+    gofumpt:
+      extra-rules: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
