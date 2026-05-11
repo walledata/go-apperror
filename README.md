@@ -87,27 +87,30 @@ are adapted from
 [gRPC's status codes](https://github.com/grpc/grpc/blob/master/doc/statuscodes.md),
 with names and notes adjusted for the HTTP-oriented use case.
 
+Table entries omit the `Code` prefix for readability — the actual Go
+identifiers are `CodeOK`, `CodeNotFound`, etc.
+
 | Code | Num | HTTP | Description |
 |---|---|---|---|
-| `CodeOK` | 0 | 200 | Not an error. Exists only for the Code↔HTTP mapping; no factory provided. |
-| `CodeOpCancelled` | 1 | 499 | Operation was cancelled, typically by the caller (context cancelled, client disconnected). |
-| `CodeUnknownError` | 2 | 500 | Unknown error; classification information is missing or the failure came from an unknown error space. |
-| `CodeIllegalInput` | 3 | 400 | Client supplied illegal input (malformed field, missing required value). |
-| `CodeTimeout` | 4 | 504 | Deadline expired before the operation could complete. For state-changing ops, may be returned even when the op later succeeds. |
-| `CodeNotFound` | 5 | 404 | A requested entity was not found. |
-| `CodeAlreadyExists` | 6 | 409 | The entity the client attempted to create already exists. |
-| `CodePermissionDenied` | 7 | 403 | Caller is identified but lacks permission for this operation. |
-| `CodeTooManyRequests` | 8 | 429 | A resource has been exhausted: per-user quota, rate limit, per-resource budget. gRPC equivalent: `RESOURCE_EXHAUSTED`. |
-| `CodeFailedPrecondition` | 9 | 400 | System is not in the state required for the operation (e.g. non-empty `rmdir`). |
-| `CodeOpConflict` | 10 | 409 | Concurrent operations conflicted (optimistic-locking version mismatch, transaction abort). gRPC equivalent: `ABORTED`. |
-| `CodeOutOfRange` | 11 | 400 | Operation attempted past a valid range (e.g. read past end of stream). |
-| `CodeUnimplemented` | 12 | 501 | Operation is defined but not implemented in this service/version. |
-| `CodeInternalError` | 13 | 500 | An invariant expected by the underlying system has been broken. Reserved for serious internal errors. |
-| `CodeUnavailable` | 14 | 503 | Service is currently unavailable; typically transient — retry with backoff is reasonable (not always safe for non-idempotent ops). |
-| `CodeIllegalState` | 15 | 500 | Illegal/corrupt data in our datastore, unrecoverable data loss. Roughly gRPC's `DATA_LOSS`, slightly broader. |
-| `CodeUnauthenticated` | 16 | 401 | Request lacks valid authentication credentials for the operation. |
-| `CodeIllegalArg` | 29 | 500 | Illegal arguments passed *within our own code's layers* — a programmer-error contract violation. |
-| `CodeAuthorizationExpired` | 30 | 401 | Credentials were valid but the session/token has expired; re-authentication is needed. |
+| `OK` | 0 | 200 | Not an error. Exists only for the Code↔HTTP mapping; no factory provided. |
+| `OpCancelled` | 1 | 499 | Operation was cancelled, typically by the caller (context cancelled, client disconnected). |
+| `UnknownError` | 2 | 500 | Unknown error; classification information is missing or the failure came from an unknown error space. |
+| `IllegalInput` | 3 | 400 | Client supplied illegal input (malformed field, missing required value). |
+| `Timeout` | 4 | 504 | Deadline expired before the operation could complete. For state-changing ops, may be returned even when the op later succeeds. |
+| `NotFound` | 5 | 404 | A requested entity was not found. |
+| `AlreadyExists` | 6 | 409 | The entity the client attempted to create already exists. |
+| `PermissionDenied` | 7 | 403 | Caller is identified but lacks permission for this operation. |
+| `TooManyRequests` | 8 | 429 | A resource has been exhausted: per-user quota, rate limit, per-resource budget. gRPC equivalent: `RESOURCE_EXHAUSTED`. |
+| `FailedPrecondition` | 9 | 400 | System is not in the state required for the operation (e.g. non-empty `rmdir`). |
+| `OpConflict` | 10 | 409 | Concurrent operations conflicted (optimistic-locking version mismatch, transaction abort). gRPC equivalent: `ABORTED`. |
+| `OutOfRange` | 11 | 400 | Operation attempted past a valid range (e.g. read past end of stream). |
+| `Unimplemented` | 12 | 501 | Operation is defined but not implemented in this service/version. |
+| `InternalError` | 13 | 500 | An invariant expected by the underlying system has been broken. Reserved for serious internal errors. |
+| `Unavailable` | 14 | 503 | Service is currently unavailable; typically transient — retry with backoff is reasonable (not always safe for non-idempotent ops). |
+| `IllegalState` | 15 | 500 | Illegal/corrupt data in our datastore, unrecoverable data loss. Roughly gRPC's `DATA_LOSS`, slightly broader. |
+| `Unauthenticated` | 16 | 401 | Request lacks valid authentication credentials for the operation. |
+| `IllegalArg` | 29 | 500 | Illegal arguments passed *within our own code's layers* — a programmer-error contract violation. |
+| `AuthorizationExpired` | 30 | 401 | Credentials were valid but the session/token has expired; re-authentication is needed. |
 
 ### Choosing between similar codes
 
