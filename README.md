@@ -28,15 +28,16 @@ import "github.com/ikonglong/go-apperror"
 
 // Construct via per-Code factories. No generic apperror.New(...) by design —
 // every AppError must carry a Code from the standardized taxonomy.
-err := apperror.NewNotFound("user not found",
+// event is required (positional); message and the rest are options.
+err := apperror.NewNotFound("user.lookup",
+    apperror.WithMessage("user not found"),
     apperror.WithCase(apperror.NewStrCase("user_id_missing")),
-    apperror.WithEvent("user.lookup"),
 )
 
 err.Code()    // CodeNotFound  (canonical)
+err.Event()   // user.lookup      (required)
 err.Case()    // user_id_missing
-err.Event()   // user.lookup
-err.Message() // user not found
+err.Message() // user not found   (or Code.Description() if WithMessage omitted)
 ```
 
 Calling a remote service and translating its failure into your taxonomy:
@@ -44,7 +45,8 @@ Calling a remote service and translating its failure into your taxonomy:
 ```go
 // In a driven adapter, after receiving a 503 from user-service:
 return &apperror.RemoteError{
-    Canonical:   apperror.NewUnavailable("user-service degraded"),
+    Canonical: apperror.NewUnavailable("user-service.GetUser",
+        apperror.WithMessage("user-service degraded")),
     Service:     "user-service",
     Operation:   "GetUser",
     Response:    &apperror.Response{StatusCode: 503, Body: rawBody},
@@ -62,10 +64,11 @@ normalized view — access it directly via `r.Canonical.Code()`. See
 
 | Concept | What it answers |
 |---|---|
-| `Code` | What category of failure, from a closed standardized taxonomy (NotFound, Unavailable, IllegalInput, ...). Use for cross-cutting decisions. |
-| `Case` | (optional) The specific business condition that produced the failure (`"purchase_limit_exceeded"`, `"insufficient_inventory"`). Orthogonal to Code. |
-| `Event` | The operation/event during which the failure occurred (`"user.signup"`). For structured-log aggregation. Format: `{namespace}.{operation}`. |
-| `Cause` | Underlying error for `errors.Is` / `errors.As` chains. |
+| `Code` | (required) Category of failure, from a closed standardized taxonomy (NotFound, Unavailable, IllegalInput, ...). Picked via the factory you call. Use for cross-cutting decisions. |
+| `Event` | (required) The operation/event during which the failure occurred (`"user.signup"`). Positional argument to every factory. For structured-log aggregation. Recommended format: `{namespace}.{operation}`. Empty event panics at construction time. |
+| `Message` | (optional, via `WithMessage`) Human-readable description. Falls back to `Code.Description()` if omitted, so unstructured loggers still see a sensible string. |
+| `Case` | (optional, via `WithCase`) The specific business condition (`"purchase_limit_exceeded"`). Orthogonal to Code. |
+| `Cause` | (optional, via `WithCause`) Underlying error for `errors.Is` / `errors.As` chains. |
 
 For `RemoteError`, three layers of "code" coexist:
 
@@ -82,7 +85,8 @@ observability fidelity.
 
 The Code constants form a closed, standardized taxonomy. Construct an
 AppError carrying a Code via the corresponding factory (e.g.
-`NewNotFound("...")`). Descriptions and the ambiguous-case rules below
+`NewNotFound("<event>", WithMessage("..."), ...)`). Descriptions and the
+ambiguous-case rules below
 are adapted from
 [gRPC's status codes](https://github.com/grpc/grpc/blob/master/doc/statuscodes.md),
 with names and notes adjusted for the HTTP-oriented use case.

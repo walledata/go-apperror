@@ -10,7 +10,7 @@ import (
 
 func newRemoteErrorFixture() *RemoteError {
 	return &RemoteError{
-		Canonical:   NewUnavailable("user-service call failed"),
+		Canonical:   NewUnavailable("user-service.GetUser", WithMessage("user-service call failed")),
 		Service:     "user-service",
 		Operation:   "GetUser",
 		Request:     &Request{Method: "GET", URL: "/users/42"},
@@ -102,13 +102,16 @@ func TestRemoteErrorEvent(t *testing.T) {
 	}
 }
 
-// RemoteError.Event() is independent of the Canonical's Event field: even if
-// WithEvent was (mistakenly) set on the Canonical, r.Event() still derives
-// from Service.Operation. Convention: do not call WithEvent on the Canonical.
+// RemoteError.Event() is independent of the Canonical's Event field:
+// whatever event was passed to the Canonical's factory (event is now a
+// required positional arg, so the caller MUST pass something), r.Event()
+// still derives from Service.Operation. Convention: callers commonly pass
+// Service.Operation to the Canonical so r.Canonical.Event() reads the
+// same as r.Event(), but the value on the Canonical is never consulted
+// by r.Event().
 func TestRemoteErrorEventIndependentOfCanonical(t *testing.T) {
 	r := &RemoteError{
-		Canonical: NewUnavailable("call failed",
-			WithEvent("should.be.ignored")),
+		Canonical: NewUnavailable("unrelated.event", WithMessage("call failed")),
 		Service:   "user-service",
 		Operation: "GetUser",
 		Response:  &Response{StatusCode: 503},
@@ -116,8 +119,8 @@ func TestRemoteErrorEventIndependentOfCanonical(t *testing.T) {
 	if got, want := r.Event(), "user-service.GetUser"; got != want {
 		t.Errorf("Event() = %q, want %q", got, want)
 	}
-	if r.Canonical.Event() != "should.be.ignored" {
-		t.Errorf("Canonical.Event() not preserved")
+	if r.Canonical.Event() != "unrelated.event" {
+		t.Errorf("Canonical.Event() not preserved (got %q)", r.Canonical.Event())
 	}
 }
 

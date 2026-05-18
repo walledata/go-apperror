@@ -53,8 +53,11 @@ import (
 //   - Response must be non-nil — that's the precondition that makes this a
 //     RemoteError in the first place.
 //   - Do NOT call WithCause on the Canonical. RemoteError has no cause.
-//   - Do NOT call WithEvent on the Canonical. RemoteError.Event() always
-//     derives from Service.Operation.
+//   - The event you pass to the Canonical's factory is preserved on
+//     r.Canonical.Event() but is NEVER consulted by r.Event() (which
+//     always derives from Service.Operation). Convention: pass
+//     Service+"."+Operation so r.Canonical.Event() and r.Event() agree
+//     when read in isolation.
 //   - Do NOT set the Canonical's Details. Remote-side structured info
 //     lives on this struct's typed fields; raw payload lives in
 //     Response.Body.

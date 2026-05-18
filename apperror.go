@@ -22,17 +22,26 @@ import (
 //
 // Construct an AppError via one of the per-Code factory functions
 // (NewNotFound, NewInternalError, etc.). The package intentionally does
-// not expose a generic "New(code, message, ...)" constructor: every
+// not expose a generic "New(code, event, ...)" constructor: every
 // AppError must be created with a Code from this package's standardized
 // taxonomy, and a caller picks the Code by picking the corresponding
 // factory. There is also no factory for CodeOK, because that is not a
 // failure.
+//
+// Each factory takes event as a required positional argument and accepts
+// optional Options (WithMessage, WithCase, WithDetails, WithCause). The
+// event field is required because this library is designed to pair with
+// structured logging where event drives log routing/aggregation; making
+// it positional forces the caller to think about it at construction time
+// instead of silently omitting it. message is optional — when not set, it
+// falls back to Code.Description() so unstructured loggers still get a
+// readable string.
 type AppError struct {
 	code    Code
+	event   string
 	caseVal Case
 	message string
 	details any
-	event   string
 	cause   error
 }
 
@@ -65,23 +74,30 @@ func WithCause(err error) Option {
 	return func(e *AppError) { e.cause = err }
 }
 
-// WithEvent sets the event name for structured logging. The event names
-// the operation/event during which the error occurred (e.g. "user.signup",
-// "order.create"), not the failure mode (which is what Code and Case
-// describe). Recommended convention: "<domain>.<operation>".
-func WithEvent(name string) Option {
-	return func(e *AppError) { e.event = name }
+// WithMessage attaches a human-readable message to the error. Optional —
+// when not provided (or when the factory is called without it), the
+// AppError's message falls back to Code.Description() so unstructured
+// loggers and human readers still see a sensible string.
+func WithMessage(msg string) Option {
+	return func(e *AppError) { e.message = msg }
 }
 
 // newAppError is the internal shared constructor used by the per-Code
-// factory functions. It is unexported on purpose: callers must pick a Code
-// by picking the corresponding factory, not by passing an arbitrary Code
-// value. If message is empty (or whitespace only), code.Description() is
-// used as a fallback.
-func newAppError(code Code, message string, opts ...Option) *AppError {
+// factory functions. It is unexported on purpose: callers must pick a
+// Code by picking the corresponding factory, not by passing an arbitrary
+// Code value.
+//
+// event is required. Empty event (after TrimSpace) panics — see the
+// AppError type doc for why. If WithMessage is not used (or sets the
+// message to ""), the message falls back to code.Description() so an
+// AppError always renders a non-empty message.
+func newAppError(code Code, event string, opts ...Option) *AppError {
+	if strings.TrimSpace(event) == "" {
+		panic(fmt.Sprintf("apperror: event is required (constructing %s)", code.Name()))
+	}
 	e := &AppError{
-		code:    code,
-		message: message,
+		code:  code,
+		event: event,
 	}
 	for _, opt := range opts {
 		opt(e)
@@ -98,14 +114,19 @@ func (e *AppError) Code() Code { return e.code }
 // Case returns the attached Case, or nil if none was set.
 func (e *AppError) Case() Case { return e.caseVal }
 
-// Message returns the error message (after any AddErrCtx prepends).
+// Message returns the error message (after any AddErrCtx prepends). Never
+// empty: when WithMessage was omitted or set to "", the constructor falls
+// back to Code.Description().
 func (e *AppError) Message() string { return e.message }
 
 // Details returns the attached details, or nil if none.
 func (e *AppError) Details() any { return e.details }
 
-// Event returns the event name for structured logging, or "" if not set.
-// See WithEvent for the intended semantics.
+// Event returns the event name for structured logging. Always non-empty
+// (factories panic on empty event at construction time). The event names
+// the operation during which the error occurred (e.g. "user.signup",
+// "order.create"), not the failure mode (which Code and Case describe).
+// Recommended convention: "<domain>.<operation>".
 func (e *AppError) Event() string { return e.event }
 
 // Cause returns the underlying cause, or nil. Equivalent to Unwrap.
@@ -165,13 +186,9 @@ func (e *AppError) String() string {
 	if e.details != nil {
 		detailsStr = fmt.Sprintf("%v", e.details)
 	}
-	eventStr := "None"
-	if e.event != "" {
-		eventStr = e.event
-	}
 	return fmt.Sprintf(
-		"AppError(code=%s, case=%s, event=%s, message='%s', details=%s)",
-		e.code.String(), caseStr, eventStr, e.message, detailsStr,
+		"AppError(code=%s, event=%s, case=%s, message='%s', details=%s)",
+		e.code.String(), e.event, caseStr, e.message, detailsStr,
 	)
 }
 
@@ -180,91 +197,91 @@ func (e *AppError) String() string {
 // Order below mirrors the order of Code constants declared in code.go.
 
 // NewOpCancelled creates an AppError for a cancelled operation. (Code 1)
-func NewOpCancelled(message string, opts ...Option) *AppError {
-	return newAppError(CodeOpCancelled, message, opts...)
+func NewOpCancelled(event string, opts ...Option) *AppError {
+	return newAppError(CodeOpCancelled, event, opts...)
 }
 
 // NewUnknownError creates an AppError for an unknown error. (Code 2)
-func NewUnknownError(message string, opts ...Option) *AppError {
-	return newAppError(CodeUnknownError, message, opts...)
+func NewUnknownError(event string, opts ...Option) *AppError {
+	return newAppError(CodeUnknownError, event, opts...)
 }
 
 // NewIllegalInput creates an AppError for illegal client input. (Code 3)
-func NewIllegalInput(message string, opts ...Option) *AppError {
-	return newAppError(CodeIllegalInput, message, opts...)
+func NewIllegalInput(event string, opts ...Option) *AppError {
+	return newAppError(CodeIllegalInput, event, opts...)
 }
 
 // NewTimeout creates an AppError for a timed-out operation. (Code 4)
-func NewTimeout(message string, opts ...Option) *AppError {
-	return newAppError(CodeTimeout, message, opts...)
+func NewTimeout(event string, opts ...Option) *AppError {
+	return newAppError(CodeTimeout, event, opts...)
 }
 
 // NewNotFound creates an AppError for a missing entity. (Code 5)
-func NewNotFound(message string, opts ...Option) *AppError {
-	return newAppError(CodeNotFound, message, opts...)
+func NewNotFound(event string, opts ...Option) *AppError {
+	return newAppError(CodeNotFound, event, opts...)
 }
 
 // NewAlreadyExists creates an AppError for an already-existing entity. (Code 6)
-func NewAlreadyExists(message string, opts ...Option) *AppError {
-	return newAppError(CodeAlreadyExists, message, opts...)
+func NewAlreadyExists(event string, opts ...Option) *AppError {
+	return newAppError(CodeAlreadyExists, event, opts...)
 }
 
 // NewPermissionDenied creates an AppError for a permission failure. (Code 7)
-func NewPermissionDenied(message string, opts ...Option) *AppError {
-	return newAppError(CodePermissionDenied, message, opts...)
+func NewPermissionDenied(event string, opts ...Option) *AppError {
+	return newAppError(CodePermissionDenied, event, opts...)
 }
 
 // NewTooManyRequests creates an AppError for quota / rate-limit exhaustion. (Code 8)
-func NewTooManyRequests(message string, opts ...Option) *AppError {
-	return newAppError(CodeTooManyRequests, message, opts...)
+func NewTooManyRequests(event string, opts ...Option) *AppError {
+	return newAppError(CodeTooManyRequests, event, opts...)
 }
 
 // NewFailedPrecondition creates an AppError for a precondition failure. (Code 9)
-func NewFailedPrecondition(message string, opts ...Option) *AppError {
-	return newAppError(CodeFailedPrecondition, message, opts...)
+func NewFailedPrecondition(event string, opts ...Option) *AppError {
+	return newAppError(CodeFailedPrecondition, event, opts...)
 }
 
 // NewOpConflict creates an AppError for a concurrent-operation conflict. (Code 10)
-func NewOpConflict(message string, opts ...Option) *AppError {
-	return newAppError(CodeOpConflict, message, opts...)
+func NewOpConflict(event string, opts ...Option) *AppError {
+	return newAppError(CodeOpConflict, event, opts...)
 }
 
 // NewOutOfRange creates an AppError for an out-of-range condition. (Code 11)
-func NewOutOfRange(message string, opts ...Option) *AppError {
-	return newAppError(CodeOutOfRange, message, opts...)
+func NewOutOfRange(event string, opts ...Option) *AppError {
+	return newAppError(CodeOutOfRange, event, opts...)
 }
 
 // NewUnimplemented creates an AppError for an unimplemented operation. (Code 12)
-func NewUnimplemented(message string, opts ...Option) *AppError {
-	return newAppError(CodeUnimplemented, message, opts...)
+func NewUnimplemented(event string, opts ...Option) *AppError {
+	return newAppError(CodeUnimplemented, event, opts...)
 }
 
 // NewInternalError creates an AppError for a server-side internal error. (Code 13)
-func NewInternalError(message string, opts ...Option) *AppError {
-	return newAppError(CodeInternalError, message, opts...)
+func NewInternalError(event string, opts ...Option) *AppError {
+	return newAppError(CodeInternalError, event, opts...)
 }
 
 // NewUnavailable creates an AppError for a transient unavailable condition. (Code 14)
-func NewUnavailable(message string, opts ...Option) *AppError {
-	return newAppError(CodeUnavailable, message, opts...)
+func NewUnavailable(event string, opts ...Option) *AppError {
+	return newAppError(CodeUnavailable, event, opts...)
 }
 
 // NewIllegalState creates an AppError for an illegal-state condition. (Code 15)
-func NewIllegalState(message string, opts ...Option) *AppError {
-	return newAppError(CodeIllegalState, message, opts...)
+func NewIllegalState(event string, opts ...Option) *AppError {
+	return newAppError(CodeIllegalState, event, opts...)
 }
 
 // NewUnauthenticated creates an AppError for missing/invalid credentials. (Code 16)
-func NewUnauthenticated(message string, opts ...Option) *AppError {
-	return newAppError(CodeUnauthenticated, message, opts...)
+func NewUnauthenticated(event string, opts ...Option) *AppError {
+	return newAppError(CodeUnauthenticated, event, opts...)
 }
 
 // NewIllegalArg creates an AppError for illegal program-internal arguments. (Code 29)
-func NewIllegalArg(message string, opts ...Option) *AppError {
-	return newAppError(CodeIllegalArg, message, opts...)
+func NewIllegalArg(event string, opts ...Option) *AppError {
+	return newAppError(CodeIllegalArg, event, opts...)
 }
 
 // NewAuthorizationExpired creates an AppError for expired authorization. (Code 30)
-func NewAuthorizationExpired(message string, opts ...Option) *AppError {
-	return newAppError(CodeAuthorizationExpired, message, opts...)
+func NewAuthorizationExpired(event string, opts ...Option) *AppError {
+	return newAppError(CodeAuthorizationExpired, event, opts...)
 }
