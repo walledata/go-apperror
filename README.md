@@ -70,6 +70,16 @@ normalized view — access it directly via `r.Canonical.Code()`. See
 | `Case` | (optional, via `WithCase`) The specific business condition (`"purchase_limit_exceeded"`). Orthogonal to Code. |
 | `Cause` | (optional, via `WithCause`) Underlying error for `errors.Is` / `errors.As` chains. |
 
+**When to define a Case.** Most errors don't need one — `Code` already
+tells callers what category of failure happened. Reach for `Case` only
+when product design or a caller has to branch on a specific business
+condition inside that category, typically to render a tailored prompt
+or trigger a different recovery path. For example, an `AlreadyExists`
+during account creation might carry `email_taken` or `phone_taken` so
+the UI can suggest "forgot your password? recover instead" rather than
+a generic duplicate message. If no caller will branch on it, leave
+`Case` unset.
+
 For `RemoteError`, three layers of "code" coexist:
 
 ```go

@@ -2,6 +2,12 @@ package apperror
 
 // Case represents a specific error condition,
 // for example: purchase_limit_exceeded, insufficient_inventory.
+//
+// Most errors don't need a Case — Code already conveys the failure
+// category. Define one only when callers must branch on a specific
+// business condition within that category (e.g. distinguishing
+// "email already taken" from "phone already taken" under AlreadyExists
+// so the UI can suggest password recovery).
 type Case interface {
 	// Identifier returns a string that uniquely identifies this error case.
 	// It can be a numerical value or a descriptive title/name. For example,
