@@ -43,6 +43,7 @@ type AppError struct {
 	message string
 	details any
 	cause   error
+	stack   StackTrace
 }
 
 // Option configures an AppError during construction.
@@ -105,6 +106,11 @@ func newAppError(code Code, event string, opts ...Option) *AppError {
 	if strings.TrimSpace(e.message) == "" {
 		e.message = code.Description()
 	}
+	// Capture the stack at the construction site. callers(4) drops the
+	// four internal frames between here and the caller — runtime.Callers,
+	// callers, newAppError, and the per-Code factory (NewNotFound/...) —
+	// so the first recorded frame is the code that constructed the error.
+	e.stack = callers(4)
 	return e
 }
 
@@ -134,6 +140,17 @@ func (e *AppError) Cause() error { return e.cause }
 
 // Unwrap returns the underlying cause for use with errors.Is / errors.As.
 func (e *AppError) Unwrap() error { return e.cause }
+
+// StackTrace returns the call stack captured when this AppError was
+// constructed, innermost (origin) frame first. Use StackTrace().Strings()
+// to render it as single-line "file:line function" entries suitable for a
+// structured log field.
+//
+// The capture point is where the error was first classified into this
+// package's taxonomy — i.e. where a factory (NewNotFound, NewInternalError,
+// ...) was called. AddNote does not create a new error, so it leaves this
+// origin stack intact.
+func (e *AppError) StackTrace() StackTrace { return e.stack }
 
 // AddNote enriches the error's message with additional context, prepended
 // and joined by " -> ". Use this when you want to add a layer of context to
