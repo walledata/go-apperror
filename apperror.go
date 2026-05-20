@@ -114,7 +114,7 @@ func (e *AppError) Code() Code { return e.code }
 // Case returns the attached Case, or nil if none was set.
 func (e *AppError) Case() Case { return e.caseVal }
 
-// Message returns the error message (after any AddErrCtx prepends). Never
+// Message returns the error message (after any AddNote prepends). Never
 // empty: when WithMessage was omitted or set to "", the constructor falls
 // back to Code.Description().
 func (e *AppError) Message() string { return e.message }
@@ -135,16 +135,16 @@ func (e *AppError) Cause() error { return e.cause }
 // Unwrap returns the underlying cause for use with errors.Is / errors.As.
 func (e *AppError) Unwrap() error { return e.cause }
 
-// AddErrCtx enriches the error's message with additional context, prepended
+// AddNote enriches the error's message with additional context, prepended
 // and joined by " -> ". Use this when you want to add a layer of context to
 // an existing AppError *without* changing its identity (Code, Case, Details
 // remain the same and the error chain does not grow).
 //
-// When to use AddErrCtx vs fmt.Errorf:
+// When to use AddNote vs fmt.Errorf:
 //
 //   - Same error, more context (e.g. you caught an AppError from a lower
 //     layer and want to note which higher-level operation it occurred in):
-//     use AddErrCtx. The returned error stays *AppError and consumers can
+//     use AddNote. The returned error stays *AppError and consumers can
 //     reach Code/Case/Details directly without errors.As.
 //
 //   - Different error or new layer in the chain (e.g. you want to wrap a
@@ -165,11 +165,11 @@ func (e *AppError) Unwrap() error { return e.cause }
 // ambiguous. " -> " is chosen because it almost never occurs inside an
 // error message, so every " -> " in the final string is unambiguously a
 // layer separator.
-func (e *AppError) AddErrCtx(ctx string) {
+func (e *AppError) AddNote(note string) {
 	if e.message != "" {
-		e.message = ctx + " -> " + e.message
+		e.message = note + " -> " + e.message
 	} else {
-		e.message = ctx
+		e.message = note
 	}
 }
 

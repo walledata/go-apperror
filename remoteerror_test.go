@@ -124,10 +124,10 @@ func TestRemoteErrorEventIndependentOfCanonical(t *testing.T) {
 	}
 }
 
-func TestRemoteErrorAddErrCtxOnCanonical(t *testing.T) {
+func TestRemoteErrorAddNoteOnCanonical(t *testing.T) {
 	r := newRemoteErrorFixture()
-	r.Canonical.AddErrCtx("during checkout")
+	r.Canonical.AddNote("during checkout")
 	if !strings.HasPrefix(r.Canonical.Message(), "during checkout -> ") {
-		t.Errorf("AddErrCtx should prepend context; got %q", r.Canonical.Message())
+		t.Errorf("AddNote should prepend context; got %q", r.Canonical.Message())
 	}
 }

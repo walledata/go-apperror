@@ -181,7 +181,7 @@ described in [architecture.md](./architecture.md). Per-layer responsibility:
 | Layer | Error responsibility |
 |---|---|
 | **Domain** | Constructs `AppError` for domain failures (NotFound, FailedPrecondition, OutOfRange, IllegalState). Knows nothing about HTTP/RPC. |
-| **Application** | Propagates errors from below, may add context via `AddErrCtx`, may construct use-case-level `AppError` (e.g. AlreadyExists for a duplicate signup). |
+| **Application** | Propagates errors from below, may add context via `AddNote`, may construct use-case-level `AppError` (e.g. AlreadyExists for a duplicate signup). |
 | **Driven adapter** | Owns translation of remote-service errors. Constructs `RemoteError` when the server responded; constructs `AppError` (typically `NewUnavailable`/`NewTimeout`) when no response was received. |
 | **Interfaces** | Catches errors at the wire boundary, maps `Code` → HTTP status via `apperror.HTTPStatusFor`, sanitizes outgoing payload. |
 

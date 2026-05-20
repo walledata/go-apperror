@@ -66,16 +66,16 @@ func TestCheckAppErrorCause(t *testing.T) {
 func TestCreateAppErrorWithCause(t *testing.T) {
 	low := errors.New("low-level error in func_a")
 	appErr := NewInternalError("test.cause", WithMessage("higher-level error msg"), WithCause(low))
-	appErr.AddErrCtx("additional err context...")
+	appErr.AddNote("additional err context...")
 	if !errors.Is(appErr, low) {
 		t.Errorf("errors.Is(appErr, low) = false, want true")
 	}
 }
 
-func TestAddErrCtx(t *testing.T) {
+func TestAddNote(t *testing.T) {
 	e := NewInternalError("test.ctx", WithMessage("initial error message"))
-	e.AddErrCtx("first context")
-	e.AddErrCtx("second context")
+	e.AddNote("first context")
+	e.AddNote("second context")
 	want := "second context -> first context -> initial error message"
 	if e.Message() != want {
 		t.Errorf("Message() = %q, want %q", e.Message(), want)
@@ -170,7 +170,7 @@ func TestAddMoreErrCtx(t *testing.T) {
 	err := validate()
 	var appErr *AppError
 	if errors.As(err, &appErr) {
-		appErr.AddErrCtx("Error while executing ...")
+		appErr.AddNote("Error while executing ...")
 	}
 	want := "AppError(code=ILLEGAL_ARG(29), event=test.morectx, case=None, message='Error while executing ... -> illegal arg', details=None)"
 	if got := appErr.String(); got != want {
